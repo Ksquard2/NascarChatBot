@@ -6,6 +6,43 @@
     <title>Document</title>
 </head>
 <body>
-    <p>hello world</p>
+    <p id = "result"></p>
+    <button onclick=generate()>Generate Video</button>
+    <br>
+    <video id="nascarVideo" width="480" controls style="display:none;"></video>
+    <script>
+        async function generate(){
+            const video = document.getElementById('nascarVideo');
+            document.getElementById('result').innerText = 'Generating video...';
+            
+            // First, generate the video
+            try {
+                const response = await fetch('/generate-video');
+                const data = await response.json();
+                if (!response.ok) {
+                    document.getElementById('result').innerText = 'Error: ' + (data.error || 'Failed to generate video');
+                    return;
+                }
+                
+                // Wait a moment for file to be ready
+                await new Promise(resolve => setTimeout(resolve, 500));
+                
+                // Then load the video
+                video.src = "/video?cachebuster=" + Date.now(); // prevent caching
+                video.style.display = 'block';
+                video.load();
+                document.getElementById('result').innerText = 'Loading video...';
+                
+                video.onloadeddata = function() {
+                    document.getElementById('result').innerText = '';
+                };
+                video.onerror = function() {
+                    document.getElementById('result').innerText = 'Error loading video.';
+                };
+            } catch (error) {
+                document.getElementById('result').innerText = 'Error: ' + error.message;
+            }
+        }
+    </script>
 </body>
 </html>
