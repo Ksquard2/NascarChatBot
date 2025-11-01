@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, request, render_template, Response, abort
+from flask import Flask, jsonify, request, render_template, Response, abort, send_from_directory
 import json
 import requests
 import os
@@ -7,6 +7,10 @@ import time
 app = Flask(__name__)
 
 VIDEO_PATH = "video.mp4"
+
+@app.route('/static/<path:filename>')
+def static_files(filename):
+    return send_from_directory('static', filename)
 
 def parse_range(range_header, file_size):
     # Example: "bytes=0-1023"
@@ -46,7 +50,9 @@ def download_generation(video_url, headers, dest_path):
 def index():
     return render_template('index.html')
 @app.route('/llm', methods=['POST'])
-def nascarLLM(promptP):
+def nascarLLM():
+    data = request.get_json()
+    promptP = data["Question"]
     AZURE_OPENAI_API_KEY = os.getenv("AZURE_OPENAI_API_KEY")
     prePrompt = """
     You are a NASCAR expert and teacher. When answering the user’s question, explain it in a way that even someone brand new to the sport can understand.
@@ -82,8 +88,10 @@ def nascarLLM(promptP):
         last_err = RuntimeError(f"Request to Azure OpenAI failed: {e}")
         return jsonify({"error": str(last_err)}) 
 
-@app.route('/generate-video', methods=['GET'])
+@app.route('/generate-video', methods=['POST'])
 def generate_video():
+    data = request.get_json()
+    curr = data["Prompt"]
     """Generate video and download to disk atomically."""
     AZURE_Video_Key = os.getenv("AZURE_Video_Key")
     prePrompt = """
@@ -94,19 +102,6 @@ def generate_video():
     • If strategy is involved, show two scenarios side-by-side or sequentially (e.g., pitting under caution vs. staying out).
     • Include a short narration script or on-screen text to go with each scene.
     • Keep the tone educational and easy to understand for someone new to NASCAR.
-    """
-    curr = """
-    Ferrari cars are shaped in a sleek, aerodynamic design to help them cut through the air more 
-    efficiently, allowing for higher speeds on the racetrack. To understand this better, think of 
-    a fish swimming through water. A fish has a streamlined body that helps it move smoothly 
-    with less effort. If a fish were bulky and flat, it would struggle to swim fast because 
-    of all the resistance from the water. Similarly, a Ferrari has a shape that minimizes 
-    "drag," which is the force that pushes against the car as it moves through the air. The curvy 
-    lines and pointed nose of a Ferrari help direct airflow around the car, which enhances stability and speed. 
-    If you want to visualize this concept, imagine blowing air through a piece of paper folded like a 
-    plane versus a flat piece of paper. The folded paper glides better, just like the curves of a 
-    Ferrari help it glide through the air at high speeds. Additionally, the design isn't just about 
-    speed; it also aids in controlling how the car handles turns and tracks on a racetrack.
     """
     prompt = prePrompt+curr
     api_url = "https://ahmed-mhgriz8w-eastus2.openai.azure.com/openai/v1/video/generations/jobs?api-version=preview"
